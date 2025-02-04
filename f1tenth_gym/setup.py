@@ -13,5 +13,7 @@ setup(name='f110_gym',
                         'numba>=0.55.2',
                         'pyyaml>=5.3.1',
                         'pyglet<1.5',
+                        'torch>=1.13.0',
+                        'tensorboard',
                         'pyopengl']
       )
