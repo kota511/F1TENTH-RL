@@ -52,11 +52,14 @@ ppo_params:
   alpha: 0.0003  # Learning rate for actor and critic
   gae_lambda: 0.95
   policy_clip: 0.2 
-  batch_size: 128
-  n_epochs: 10
+  batch_size: 64
+  n_epochs: 4
   learning_rate: 0.0003
-  max_steps_per_episode: 1000
-  update_interval: 128  # Match with batch_size
+  max_steps_per_episode: 5000      # maximum steps that can be reached eventually
+  initial_max_steps: 1000          # starting max steps for curriculum
+  final_max_steps: 5000            # final max steps after curriculum_episodes
+  curriculum_episodes: 500         # over how many episodes to gradually increase
+  update_interval: 128             # Match with batch_size
   clip_range: 0.2
   value_loss_coef: 0.5
   entropy_coef: 0.01
