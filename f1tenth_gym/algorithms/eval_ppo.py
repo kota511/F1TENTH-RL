@@ -109,15 +109,20 @@ if __name__ == "__main__":
     obs = env.reset()
     done = False
     total_reward = 0.0
+    max_speed = 0.0
     start = time.time()
 
     while not done:
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
         total_reward += reward
-        raw_obs = env.envs[0].obs  # access the raw obs dictionary inside your wrapper
+
+        raw_obs = env.envs[0].obs  # access the raw obs dictionary inside wrapper
+        current_speed = raw_obs['linear_vels_x'][0]
+        max_speed = max(max_speed, current_speed)
         lap_count = raw_obs['lap_counts'][0]
         lap_time = raw_obs['lap_times'][0]
+
         env.envs[0].env.render()
 
     real_elapsed_time = time.time() - start
@@ -126,4 +131,5 @@ if __name__ == "__main__":
     print(f"Total reward: {float(total_reward):.2f}")
     print(f"Lap count: {lap_count}")
     print(f"Lap time (last completed lap): {lap_time:.2f} sec")
+    print(f"Max speed during run: {max_speed:.2f} m/s")
     print(f"Wall-clock time: {real_elapsed_time:.2f} sec")

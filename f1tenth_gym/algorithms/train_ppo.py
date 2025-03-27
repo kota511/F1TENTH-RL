@@ -128,34 +128,42 @@ class F110RLWrapper(gym.Wrapper):
 
     def _compute_reward(self):
         speed = self.obs['linear_vels_x'][0]
-        crash_penalty = -5.0 if self.step_count < self.max_steps and self.obs['collisions'][0] > 0 else 0.0
+        crash_penalty = -100.0 if self.step_count < self.max_steps and self.obs['collisions'][0] > 0 else 0.0
         angle_penalty = -2.0 * abs(self.angle_error)
-        alive_bonus = 1.0
+        alive_bonus = 0.1
         return speed + alive_bonus + angle_penalty + crash_penalty
 
 
 
 if __name__ == "__main__":
     # Create vectorized environment for PPO
-    env = DummyVecEnv([make_env])
+    train_env = DummyVecEnv([make_env])
+    eval_env = DummyVecEnv([make_env])
 
     # Define PPO model
     model = PPO(
         "MlpPolicy",
-        env,
+        train_env,
         verbose=1,
         learning_rate=0.0003,
-        tensorboard_log=LOG_DIR
+        tensorboard_log=LOG_DIR,
+        # device="mps"
     )
 
     # Callback to log and save best model during training
-    eval_env = DummyVecEnv([make_env])
-    survival_callback = SurvivalEvalCallback(eval_env, check_freq=5000, target_survival_steps=2000)
+    eval_callback = EvalCallback(
+        eval_env,
+        best_model_save_path=BEST_MODEL_DIR,
+        log_path=BEST_MODEL_DIR,
+        eval_freq=5000,
+        deterministic=True,
+        render=False
+    )
 
     # Start training
     model.learn(
         total_timesteps=5_000_000,
-        callback=survival_callback,
+        callback=eval_callback,
         progress_bar=True
     )
 
