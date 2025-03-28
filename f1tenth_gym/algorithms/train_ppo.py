@@ -10,6 +10,7 @@ from f110_gym.envs.base_classes import Integrator
 from purepursuit import PurePursuitPlanner
 from callbacks import SurvivalEvalCallback
 import gym
+import torch
 
 # Constants for saving models and logs
 MODEL_DIR = "models"
@@ -61,11 +62,13 @@ class F110RLWrapper(gym.Wrapper):
         self.step_count = 0
         self.obs = None
         self.angle_error = 0.0  # cache angle error for reward
+        self.prev_lap_count = 0
 
         # Updated observation space: [x, y, theta, speed, angle_error]
         self.observation_space = gym.spaces.Box(
             low=np.array([0.0, 0.0, -np.pi, 0.0, -np.pi]),
             high=np.array([np.inf, np.inf, np.pi, np.inf, np.pi]),
+            shape=(5,),
             dtype=np.float32
         )
 
@@ -87,7 +90,11 @@ class F110RLWrapper(gym.Wrapper):
         sim_action = self._preprocess_action(action)
         self.obs, _, done, info = self.env.step(sim_action)
         self.step_count += 1
+
         reward = self._compute_reward()
+
+        self.prev_lap_count = self.obs['lap_counts'][0]
+
         done = done or self.step_count >= self.max_steps
         return self._preprocess_obs(self.obs), reward, done, info
 
@@ -116,24 +123,32 @@ class F110RLWrapper(gym.Wrapper):
         return np.array([pose_x, pose_y, pose_theta, linear_vel, self.angle_error], dtype=np.float32)
 
     def _preprocess_action(self, action):
-        MAX_STEER = 1.0  # rad
+        MAX_STEER = 1.0
         steer = float(action[0]) * MAX_STEER
 
         pose_x = self.obs['poses_x'][0]
         pose_y = self.obs['poses_y'][0]
         pose_theta = self.obs['poses_theta'][0]
+
+        MAX_SPEED = 10.0
         speed, _ = self.planner.plan(pose_x, pose_y, pose_theta, self.conf.tlad, self.conf.vgain)
+        speed = np.clip(speed, 0.0, MAX_SPEED)
 
         return np.array([[steer, speed]], dtype=np.float32)
 
     def _compute_reward(self):
-        speed = self.obs['linear_vels_x'][0]
-        crash_penalty = -100.0 if self.step_count < self.max_steps and self.obs['collisions'][0] > 0 else 0.0
-        angle_penalty = -2.0 * abs(self.angle_error)
-        alive_bonus = 0.1
-        return speed + alive_bonus + angle_penalty + crash_penalty
+        speed = 0.1 * self.obs['linear_vels_x'][0]
+        crash_penalty = -50.0 if self.step_count < self.max_steps and self.obs['collisions'][0] > 0 else 0.0
+        angle_penalty = -1.0 * abs(self.angle_error) #best result with -2 so far
+        alive_bonus = 2 #best result with 1 so far
 
+        lap_count = self.obs['lap_counts'][0]
+        lap_bonus = 0.0
+        if lap_count > 0.5:
+            print(f"Lap completed! Lap count: {lap_count}")
+            lap_bonus = 50.0
 
+        return speed + alive_bonus + angle_penalty + crash_penalty + lap_bonus
 
 if __name__ == "__main__":
     # Create vectorized environment for PPO
@@ -148,6 +163,7 @@ if __name__ == "__main__":
         learning_rate=0.0003,
         tensorboard_log=LOG_DIR,
         # device="mps"
+        device="cuda" if torch.cuda.is_available() else "cpu"
     )
 
     # Callback to log and save best model during training
