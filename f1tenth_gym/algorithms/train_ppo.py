@@ -130,7 +130,7 @@ class F110RLWrapper(gym.Wrapper):
         pose_y = self.obs['poses_y'][0]
         pose_theta = self.obs['poses_theta'][0]
 
-        MAX_SPEED = 10.0
+        MAX_SPEED = 9.0
         speed, _ = self.planner.plan(pose_x, pose_y, pose_theta, self.conf.tlad, self.conf.vgain)
         speed = np.clip(speed, 0.0, MAX_SPEED)
 
@@ -138,9 +138,9 @@ class F110RLWrapper(gym.Wrapper):
 
     def _compute_reward(self):
         speed = 0.1 * self.obs['linear_vels_x'][0]
-        crash_penalty = -50.0 if self.step_count < self.max_steps and self.obs['collisions'][0] > 0 else 0.0
-        angle_penalty = -1.0 * abs(self.angle_error) #best result with -2 so far
-        alive_bonus = 2 #best result with 1 so far
+        crash_penalty = -2000.0 if self.step_count < self.max_steps and self.obs['collisions'][0] > 0 else 0.0 #best result with -80 so far
+        angle_penalty = -2 * abs(self.angle_error) #best result with -2 so far
+        alive_bonus = 1 #best result with 1 so far
 
         lap_count = self.obs['lap_counts'][0]
         lap_bonus = 0.0
