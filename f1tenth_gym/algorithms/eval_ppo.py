@@ -77,10 +77,15 @@ class F110RLWrapper(gym.Wrapper):
     def _preprocess_action(self, action):
         MAX_STEER = 1.0
         steer = float(action[0]) * MAX_STEER
+        
         pose_x = self.obs['poses_x'][0]
         pose_y = self.obs['poses_y'][0]
         pose_theta = self.obs['poses_theta'][0]
+
+        MAX_SPEED = 9.0
         speed, _ = self.planner.plan(pose_x, pose_y, pose_theta, self.conf.tlad, self.conf.vgain)
+        speed = np.clip(speed, 0.0, MAX_SPEED)
+        
         return np.array([[steer, speed]], dtype=np.float32)
 
 def make_env():
